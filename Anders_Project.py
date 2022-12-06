@@ -37,7 +37,7 @@ plt.show()
 
 #Fit the function with a polynomial using minuit, here using sample data
 
-def line(x, a, b):
+def line(x, a, b): 
     return a + x * b
 
 np.random.seed(1)
