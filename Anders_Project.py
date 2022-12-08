@@ -6,39 +6,11 @@ import pandas as pd
 import scipy.signal as sp
 from iminuit import Minuit
 from iminuit.cost import LeastSquares
+from scipy.stats import chi2
+
 
 #%%
-#Read pendulum periods
-
-def read_csv(filename):
-	dat = pd.read_csv(filename, sep = ',', header = 13, names = ["Time (s)", "voltage (V)"]) 
-	return dat
-
-def find_peaks(filename): 
-
-	dat = read_csv(filename)
-	peaks = sp.find_peaks(dat["voltage (V)"], height = 4, distance = 100)
-	time = []
-	for i in peaks[0]: 
-		time.append(dat["Time (s)"][i])
-	return time
-
-filename = "Anders_L_fp.csv" 
-path = "Data/Incline/"   
-
-
-print(path + filename)
-
-x = np.array(find_peaks(path + filename))
-
-dat = read_csv(path + filename)
-
-print(find_peaks(path + filename))
-plt.plot(dat["Time (s)" ], dat["voltage (V)"])
-
-plt.show()
-
-#%%
+#Very ugly arrays of all data used in the pendulum and incline plane calculations of the graviational acceleration
 
 "_____________PENDULUM_DATA____________"
 
@@ -84,49 +56,214 @@ Angle_turn = np.array([13.1, 13.15, 13.1, 13.2, 13.0])
 Angle_turn_err = np.array([0.3, 0.5, 0.2, 0.3, 0.2])
 
 New_cute_ball = np.array([1.20, 1.20, 1.20, 1.20, 1.20])
-New_cute_ball = np.array([0.01, 0.04, 0.0000001, 0.01, 0.02])
+New_cute_ball_err = np.array([0.01, 0.04, 0.0000001, 0.01, 0.02])
 
 Rail_width = np.array([0.612, 0.628, 0.605, 0.6, 0.630])
 Rail_width_err = np.array([0.04, 0.05, 0.03, 0.05, 0.05])
 
+#%%
+
+"Define all the functions to calculate the gravitational acceleration and the error on this"
+
+def csc(theta):
+	y = 1/np.sin(theta)
+	return y 
+
+def cot(theta):
+	y = np.cos(theta)/np.sin(theta)
+	return y 
+
+def pend_g(L,T):
+
+	g = L*(2*np.pi/T)**2
+
+	return g
+
+def pend_g_err(L,T,L_err,T_err):
+
+	sig_g = ((2*np.pi/T)**2*L_err - L*((8*np.pi**2)/(T**3))*T_err)**2
+
+	return sig_g
+
+def inc_g(a, theta, D_ball, D_rail):
+
+	g = a/(np.sin(theta*np.pi/180))*(1 + 2/5 *(D_ball**2/(D_ball**2-D_rail**2)))
+
+	return g
+
+def inc_g_err(a, theta, D_ball, D_rail, a_err, theta_err, D_ball_err, D_rail_err):
+
+	sig_g = (1 + 5/2 * (D_ball**2)/(D_ball**2-D_rail**2))*csc(theta*np.pi/180)*a_err - a * (1 + 5/2 * (D_ball**2)/(D_ball**2-D_rail**2))*cot(theta*np.pi/180)*csc(theta*np.pi/180)*theta_err - a*csc(theta*np.pi/180)*(5*D_rail**2*D_ball)/(D_rail**2-D_ball**2)**2 * D_ball_err + a * csc(theta*np.pi/180) * (5*D_rail*D_ball**2)/(D_rail**2-D_ball**2)**2 * D_rail_err
+
+	return sig_g
+
 
 #%%
-print(len(find_peaks(path + filename)), len(Anders_inc))
+#Reads the data from a .csv file and puts it into a pandas dataframe
+def read_csv(filename):
+	dat = pd.read_csv(filename, sep = ',', header = 13, names = ["Time (s)", "voltage (V)"]) 
+	return dat
 
+#Used SciPy to find the peaks where the ball passes the each of the individual 5 gates on the rail.
+def find_peaks(filename): 
+
+	dat = read_csv(filename)
+	peaks = sp.find_peaks(dat["voltage (V)"], height = 4, distance = 100)
+	time = []
+	for i in peaks[0]: 
+		time.append(dat["Time (s)"][i])
+	return time
+
+"_______________FIT AND PLOT FOR INCLINE PLANE WITH ONE FILE______________"
+
+#List of filenames used in the incline plane
+filename = "Anders_L_fp.csv" 
+path = "Data/Incline/"   
+
+print(path + filename)
+
+
+x = np.array(find_peaks(path + filename))
+y = Anders_inc
+y_err = Anders_inc_err
+
+
+#Read and plot the Voltage vs time to for a visualization of the peaks
+dat = read_csv(path + filename)
+print(find_peaks(path + filename))
+plt.plot(dat["Time (s)" ], dat["voltage (V)"])
 
 plt.show()
-#%%
 
-print(np.array([find_peaks(path + filename)]).size)
-print(Anders_inc.size)
 
 #%%
-#Fit the function with a polynomial using minuit, here using sample data
+#Fit the function with a polynomial using minuit
 
+#Define the function we wanna fit after
 def line(x, a, b, c): 
-	return a + x * b + c*x**2
-
-
+	return c + x * b + (a/2)*x**2
 
 #%%
+#We are using leastsquares fit here, this takes x, y, y_error, fit_func
+leastSquares = LeastSquares(x, y, y_err, line)
 
-leastSquares = LeastSquares(find_peaks(path + filename), Anders_inc, Anders_inc_err, line)
-
-m = Minuit(leastSquares, a=16, b=56, c=44)  # starting values for α and β
+#Makes the fit with minuit using our least square fit and guesses on the parameters.
+m = Minuit(leastSquares, a=1, b=1, c=1)  
 
 m.migrad()  # finds minimum of least_squares function
 m.hesse()   # accurately computes uncertainties
 
-print(Anders_inc)
-print(x)
-print(Anders_inc_err.size)
+#%%
+
+# draw data and fitted line
+plt.errorbar(x, y, yerr=y_err, fmt="o")
+plt.plot(x, line(x, *m.values), label="fit")
+
+#Plot our fit info
+fit_info = [
+	f"$\\chi^2$ / $n_\\mathrm{{dof}}$ = {m.fval:.1f} / {len(x) - m.nfit}",]
+for p, v, e in zip(m.parameters, m.values, m.errors):
+	fit_info.append(f"{p} = ${v:.3f} \\pm {e:.3f}$")
+
+plt.legend(title="\n".join(fit_info));
+plt.show()
+
+# %%
+print(inc_g(m.values[0]/100,np.mean(Angle),np.mean(New_cute_ball)/100, np.mean(Rail_width)/100))
+
+print(np.sqrt(inc_g_err(m.values[0]/100, np.mean(Angle), np.mean(New_cute_ball)/100, np.mean(Rail_width)/100, 6.669/100, np.mean(Angle_err), np.mean(New_cute_ball_err)/100, np.mean(Rail_width_err))))
+
+incline_g = np.array([])
+incline_g_err = np.array([])
+
+
+#%%
+
+"______________________FULLY ITERATIVE LOOP OVER ALL INCLINE PLANE FILES FILES___________________________"
+
+Incline_name_list_fp = ["Anders_L_fp.csv", "cecil_L_fp.csv", "gustav_L_fp.csv", "Vic_L_fp.csv", "Mort_L_fp.csv"]
+
+Incline_name_list_sp = ["Andersl_L_sp.csv", "cecil_L_sp.csv", "gustav_L_sp.csv", "Vic_L_sp.csv", "Mort_L_sp.csv"]
+
+Incline_length_list = [Anders_inc, Cecilie_inc, Gustav_inc, Victoria_inc, Morten_inc]
+
+Incline_length_list_err = [Anders_inc_err, Cecilie_inc_err, Gustav_inc_err, Victoria_inc_err, Morten_inc_err]
+
+
+Incline_grav = []
+
+for i, j, k in zip(Incline_name_list_fp, Incline_length_list, Incline_length_list_err):
+
+	filename = i
+	path = "Data/Incline/"   
+
+	x = np.array(find_peaks(path + filename))
+	y = j
+	y_err = j
+
+	def line(x, a, b, c): 
+		return c + x * b + (a/2)*x**2
+
+	#We are using leastsquares fit here, this takes x, y, y_error, fit_func
+	leastSquares = LeastSquares(x, y, y_err, line)
+
+	#Makes the fit with minuit using our least square fit and guesses on the parameters.
+	m = Minuit(leastSquares, a=1, b=1, c=1)  
+
+	m.migrad()  # finds minimum of least_squares function
+	m.hesse()   # accurately computes uncertainties
+
+	g = inc_g(m.values[0]/100,np.mean(Angle),np.mean(New_cute_ball)/100, np.mean(Rail_width)/100)
+
+	#np.sqrt(inc_g_err(m.values[0]/100, np.mean(Angle), np.mean(New_cute_ball)/100, np.mean(Rail_width)/100, 6.669/100, np.mean(Angle_err), np.mean(New_cute_ball_err)/100, np.mean(Rail_width_err)))
+
+	Incline_grav.append(g)
+
+Incline_grav = np.array(Incline_grav)
+print(np.mean(Incline_grav))
+# %%
+
+"_______________FIT AND PLOT FOR PENDULUM WITH ONE FILE______________"
+
+def read_dat(filename):
+	dat = pd.read_csv(filename, sep = '\t', names = ["Number (n)","Time (s)"]) 
+	return dat
+
+filename = "timer_output_gustav2.dat" 
+path = "Data/Pendulum/" 
+
+dat = read_dat(path + filename)
+
+x = dat["Number (n)"]
+y = dat["Time (s)"]
+y_err = np.zeros_like(y)+1
+print(len(x))
+
+plt.plot(dat["Number (n)"],dat["Time (s)"], 'o')
+# %%
+#Fit the function with a polynomial using minuit
+
+#Define the function we wanna fit after
+def line(x, a, b): 
+	return a * x + b
+
+#%%
+#We are using leastsquares fit here, this takes x, y, y_error, fit_func
+leastSquares = LeastSquares(x, y, y_err, line)
+
+#Makes the fit with minuit using our least square fit and guesses on the parameters.
+m = Minuit(leastSquares, a=8, b=10)  
+
+m.migrad()  # finds minimum of least_squares function
+m.hesse()   # accurately computes uncertainties
 
 #%%
 
 # draw data and fitted line
-plt.errorbar(x, Anders_inc, yerr=Anders_inc_err, fmt="o")
+plt.errorbar(x, y, yerr=y_err, fmt="o")
 plt.plot(x, line(x, *m.values), label="fit")
 
+#Plot our fit info
 fit_info = [
 	f"$\\chi^2$ / $n_\\mathrm{{dof}}$ = {m.fval:.1f} / {len(x) - m.nfit}",]
 for p, v, e in zip(m.parameters, m.values, m.errors):
@@ -135,3 +272,49 @@ for p, v, e in zip(m.parameters, m.values, m.errors):
 plt.legend(title="\n".join(fit_info));
 plt.show()
 # %%
+
+pend_g(np.mean(Pen_length)/100,m.values[0])
+
+# %%
+
+"__________________FULLY ITERATIVE LOOP OVER ALL PENDULUM FILES_________________________"
+
+Pend_name_list = ["timer_output_anders.dat","timer_output_cecilie.dat","timer_output_gustav2.dat","timer_output_morten.dat","timer_output_victoria.dat"]
+
+Pendulum_Grav = []
+Pendulum_Grav_err = []
+
+for i in Pend_name_list:
+	filename = i 
+	path = "Data/Pendulum/" 
+
+	dat = read_dat(path + filename)
+
+	x = dat["Number (n)"]
+	y = dat["Time (s)"]
+	y_err = 0.01
+
+	def line(x, a, b): 
+		return a * x + b
+
+	#We are using leastsquares fit here, this takes x, y, y_error, fit_func
+	leastSquares = LeastSquares(x, y, y_err, line)
+
+	#Makes the fit with minuit using our least square fit and guesses on the parameters.
+	m = Minuit(leastSquares, a=8, b=10)  
+
+	m.migrad()  # finds minimum of least_squares function
+	m.hesse() 
+
+	P_g = pend_g(np.mean(Pen_length)/100,m.values[0])
+
+	P_g_err = pend_g_err(np.mean(Pen_length)/100,m.values[0],np.mean(Pen_length_err)/100,y_err)
+
+	Pendulum_Grav.append(P_g)
+	Pendulum_Grav_err.append(P_g_err)
+#%%
+
+Pendulum_Grav = np.array(Pendulum_Grav)
+Pendulum_Grav_err = np.array(Pendulum_Grav_err)
+
+print(np.mean(Pendulum_Grav), np.mean(Pendulum_Grav_err))
