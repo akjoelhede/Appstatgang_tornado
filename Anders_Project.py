@@ -93,6 +93,8 @@ def inc_g(a, theta, D_ball, D_rail):
 
 def inc_g_err(a, theta, D_ball, D_rail, a_err, theta_err, D_ball_err, D_rail_err):
 
+	sig_g_1 = ()*csc(theta)
+
 	sig_g = (1 + 5/2 * (D_ball**2)/(D_ball**2-D_rail**2))*csc(theta*np.pi/180)*a_err - a * (1 + 5/2 * (D_ball**2)/(D_ball**2-D_rail**2))*cot(theta*np.pi/180)*csc(theta*np.pi/180)*theta_err - a*csc(theta*np.pi/180)*(5*D_rail**2*D_ball)/(D_rail**2-D_ball**2)**2 * D_ball_err + a * csc(theta*np.pi/180) * (5*D_rail*D_ball**2)/(D_rail**2-D_ball**2)**2 * D_rail_err
 
 	return sig_g
@@ -171,7 +173,7 @@ plt.show()
 # %%
 print(inc_g(m.values[0]/100,np.mean(Angle),np.mean(New_cute_ball)/100, np.mean(Rail_width)/100))
 
-print(np.sqrt(inc_g_err(m.values[0]/100, np.mean(Angle), np.mean(New_cute_ball)/100, np.mean(Rail_width)/100, 6.669/100, np.mean(Angle_err), np.mean(New_cute_ball_err)/100, np.mean(Rail_width_err))))
+#print(np.sqrt(inc_g_err(m.values[0]/100, np.mean(Angle), np.mean(New_cute_ball)/100, np.mean(Rail_width)/100, 6.669/100, np.mean(Angle_err), np.mean(New_cute_ball_err)/100, np.mean(Rail_width_err))))
 
 incline_g = np.array([])
 incline_g_err = np.array([])
@@ -199,7 +201,7 @@ for i, j, k in zip(Incline_name_list_fp, Incline_length_list, Incline_length_lis
 
 	x = np.array(find_peaks(path + filename))
 	y = j
-	y_err = j
+	y_err = k
 
 	def line(x, a, b, c): 
 		return c + x * b + (a/2)*x**2
@@ -215,7 +217,7 @@ for i, j, k in zip(Incline_name_list_fp, Incline_length_list, Incline_length_lis
 
 	g = inc_g(m.values[0]/100,np.mean(Angle),np.mean(New_cute_ball)/100, np.mean(Rail_width)/100)
 
-	#np.sqrt(inc_g_err(m.values[0]/100, np.mean(Angle), np.mean(New_cute_ball)/100, np.mean(Rail_width)/100, 6.669/100, np.mean(Angle_err), np.mean(New_cute_ball_err)/100, np.mean(Rail_width_err)))
+	#g_err = np.sqrt(inc_g_err(m.values[0]/100, np.mean(Angle), np.mean(New_cute_ball)/100, np.mean(Rail_width)/100, 6.669/100, np.mean(Angle_err), np.mean(New_cute_ball_err)/100, np.mean(Rail_width_err)))
 
 	Incline_grav.append(g)
 
@@ -318,3 +320,7 @@ Pendulum_Grav = np.array(Pendulum_Grav)
 Pendulum_Grav_err = np.array(Pendulum_Grav_err)
 
 print(np.mean(Pendulum_Grav), np.mean(Pendulum_Grav_err))
+
+# %%
+print(Pendulum_Grav)
+# %%
