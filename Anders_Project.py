@@ -91,13 +91,22 @@ def inc_g(a, theta, D_ball, D_rail):
 
 	return g
 
-def inc_g_err(a, theta, D_ball, D_rail, a_err, theta_err, D_ball_err, D_rail_err):
-
-	sig_g_1 = ()*csc(theta)
-
-	sig_g = (1 + 5/2 * (D_ball**2)/(D_ball**2-D_rail**2))*csc(theta*np.pi/180)*a_err - a * (1 + 5/2 * (D_ball**2)/(D_ball**2-D_rail**2))*cot(theta*np.pi/180)*csc(theta*np.pi/180)*theta_err - a*csc(theta*np.pi/180)*(5*D_rail**2*D_ball)/(D_rail**2-D_ball**2)**2 * D_ball_err + a * csc(theta*np.pi/180) * (5*D_rail*D_ball**2)/(D_rail**2-D_ball**2)**2 * D_rail_err
-
-	return sig_g
+def egravity_acc (acc, theta, D_ball, d_rail, eacc, etheta, eD_ball, eD_rail):
+    rho_a = (1+(2*D_ball**2)/(D_ball**2-d_rail**2))/np.sin(theta*np.pi/180)
+    a_contr = rho_a**2 * eacc**2
+    a = acc*np.cos(theta*np.pi/180)
+    b1 = 2 * (D_ball**2)
+    b2 = 5 * ((D_ball**2) - (d_rail**2))
+    b = 1 + (b1 / b2)
+    c = (np.sin(theta*np.pi/180))**2
+    rho_theta = (a) * (b) / (c)
+    theta_contr = rho_theta**2 * (etheta*np.pi/180)**2
+    rho_D_ball = acc*(4*D_ball/5*(D_ball**2-d_rail**2)-4*D_ball**3/(5*(D_ball**2-d_rail**2)**2)/np.sin(theta*np.pi/180))
+    D_ball_contr = rho_D_ball**2 * eD_ball**2
+    rho_d_rail = 4*acc*D_ball**2*d_rail/5*np.sin(theta*np.pi/180)*(D_ball**2-d_rail**2)**2
+    d_rail_contr = rho_d_rail**2 * eD_rail**2
+    eg = np.sqrt(a_contr + theta_contr + D_ball_contr + d_rail_contr)
+    return eg
 
 
 #%%
@@ -193,6 +202,7 @@ Incline_length_list_err = [Anders_inc_err, Cecilie_inc_err, Gustav_inc_err, Vict
 
 
 Incline_grav = []
+Incline_grav_err = []
 
 for i, j, k in zip(Incline_name_list_fp, Incline_length_list, Incline_length_list_err):
 
@@ -217,12 +227,16 @@ for i, j, k in zip(Incline_name_list_fp, Incline_length_list, Incline_length_lis
 
 	g = inc_g(m.values[0]/100,np.mean(Angle),np.mean(New_cute_ball)/100, np.mean(Rail_width)/100)
 
+	g_err = egravity_acc (m.values[0]/100, np.mean(Angle), np.mean(New_cute_ball)/100, np.mean(Rail_width)/100, 6.6, np.mean(Angle_err), np.mean(New_cute_ball_err)/100, np.mean(Rail_width_err)/100 )/100
 	#g_err = np.sqrt(inc_g_err(m.values[0]/100, np.mean(Angle), np.mean(New_cute_ball)/100, np.mean(Rail_width)/100, 6.669/100, np.mean(Angle_err), np.mean(New_cute_ball_err)/100, np.mean(Rail_width_err)))
 
 	Incline_grav.append(g)
+	Incline_grav_err.append(g_err)
 
 Incline_grav = np.array(Incline_grav)
-print(np.mean(Incline_grav))
+Incline_grav_err = np.array(Incline_grav_err)
+print(np.mean(Incline_grav),np.mean(Incline_grav_err))
+
 # %%
 
 "_______________FIT AND PLOT FOR PENDULUM WITH ONE FILE______________"
@@ -294,7 +308,7 @@ for i in Pend_name_list:
 
 	x = dat["Number (n)"]
 	y = dat["Time (s)"]
-	y_err = 0.01
+	y_err = 0.1
 
 	def line(x, a, b): 
 		return a * x + b
@@ -303,7 +317,7 @@ for i in Pend_name_list:
 	leastSquares = LeastSquares(x, y, y_err, line)
 
 	#Makes the fit with minuit using our least square fit and guesses on the parameters.
-	m = Minuit(leastSquares, a=8, b=10)  
+	m = Minuit(leastSquares, a=8, b=10)
 
 	m.migrad()  # finds minimum of least_squares function
 	m.hesse() 
@@ -321,6 +335,5 @@ Pendulum_Grav_err = np.array(Pendulum_Grav_err)
 
 print(np.mean(Pendulum_Grav), np.mean(Pendulum_Grav_err))
 
-# %%
-print(Pendulum_Grav)
+
 # %%
