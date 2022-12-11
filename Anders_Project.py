@@ -6,6 +6,7 @@ import pandas as pd
 import scipy.signal as sp
 from iminuit import Minuit
 from iminuit.cost import LeastSquares
+from scipy.stats import chi2
 sys.path.append('External_Functions')
 from ExternalFunctions import UnbinnedLH, BinnedLH, Chi2Regression
 from ExternalFunctions import nice_string_output, add_text_to_ax
@@ -225,13 +226,23 @@ Incline_grav = np.array(Incline_grav)
 print(np.mean(Incline_grav))
 # %%
 
+def ChiDaddy(measure,usikkerhed):
+	gennem = np.mean(measure)
+	chi_val = np.sum((measure-gennem)**2/usikkerhed**2)
+	return chi_val, chi2.sf(chi_val,len(measure)-1)
+
+
+#%%
+
 "_______________FIT AND PLOT FOR PENDULUM WITH ONE FILE______________"
+
+Pend_name_list = ["timer_output_anders.dat","timer_output_cecilie.dat","timer_output_gustav2.dat","timer_output_morten.dat","timer_output_victoria.dat"]
 
 def read_dat(filename):
 	dat = pd.read_csv(filename, sep = '\t', names = ["Number (n)","Time (s)"]) 
 	return dat
 
-filename = "timer_output_gustav2.dat" 
+filename = "timer_output_victoria.dat" 
 path = "Data/Pendulum/" 
 
 dat = read_dat(path + filename)
@@ -240,15 +251,12 @@ x = dat["Number (n)"]
 y = dat["Time (s)"]
 y_err = 0.1
 
-plt.plot(dat["Number (n)"],dat["Time (s)"], 'o')
-# %%
 #Fit the function with a polynomial using minuit
 
 #Define the function we wanna fit after
 def line(x, a, b): 
 	return a * x + b
 
-#%%
 #We are using leastsquares fit here, this takes x, y, y_error, fit_func
 Chi2 = Chi2Regression(line, x, y, y_err)
 
@@ -258,10 +266,15 @@ m = Minuit(Chi2, a=8, b=10)
 m.migrad()  # finds minimum of least_squares function
 m.hesse()   # accurately computes uncertainties
 
-#%%
 
 res = y - line(x, *m.values)
 print(res)
+
+mu, sigma = 0, np.std(res) # mean and standard deviation
+s = np.random.normal(mu, sigma, 1000)
+
+count, bins, ignored = plt.hist(s, 30, density=True)
+plt.plot(bins, 1/(sigma * np.sqrt(2 * np.pi)) * np.exp( - (bins - mu)**2 / (2 * sigma**2) ),linewidth=2, color='r')
 
 #%%
 fit_info = [f"$\\chi^2$ / $n_\\mathrm{{dof}}$ = {m.fval:.1f} / {len(x) - m.nfit}",]
@@ -269,26 +282,44 @@ for p, v, e in zip(m.parameters, m.values, m.errors):
 	fit_info.append(f"{p} = ${v:.3f} \\pm {e:.3f}$")
 fig, ax = plt.subplots()
 
-ax.errorbar(x, y, yerr=y_err, fmt="o", color = 'black')
-ax.errorbar(x, line(x, *m.values), label="fit", color = 'blue' )
+ax.errorbar(x, y-50, yerr=y_err, fmt="o", color = 'black')
+ax.errorbar(x, line(x, *m.values)-50, label="fit", color = 'blue' )
 ax.set_ylim(-30,180)
 ax.set_xlabel('Measurement number (N)', fontsize = 15)
 ax.set_ylabel('Time elapsed (S)', fontsize = 15)
 ax.set_title('Pendulum', fontsize = 20)
 ax.legend(title="\n".join(fit_info));
 
-
 ax2 = ax.twinx()
 
-ax2.errorbar(x, res, y_err, fmt = ".", color = 'red')
+ax2.errorbar(x, res, np.std(res), fmt = ".", color = 'red', capsize = 3)
 ax2.set_ylim(-0.5,3)
-ax2.hlines(0.1,0,20, color = 'black', linestyle = '--')
+ax2.hlines(np.std(res),0,20, color = 'black', linestyle = '--')
 ax2.hlines(0,0,20, color = 'black', linestyle = 'solid')
-ax2.hlines(-0.1,0,20, color = 'black', linestyle = '--')
+ax2.hlines(-np.std(res),0,20, color = 'black', linestyle = '--')
 ax2.set_ylabel('Residuals (S)', fontsize = 15)
+yticks = ax2.yaxis.get_major_ticks()
+yticks[3].set_visible(False)
+yticks[4].set_visible(False)
+yticks[5].set_visible(False)
+yticks[6].set_visible(False)
+yticks[7].set_visible(False)
+
+counts, bin_edges = np.histogram(res, density=True)
+bin_centres = (bin_edges[:-1] + bin_edges[1:])/2
+
+ax3 = ax.inset_axes([0.67, 0.35, 0.3, 0.3])
+ax3.errorbar(bin_centres, counts, 1/np.sqrt(counts), 1/15 , fmt =  '.', color = 'black')
+ax3.plot(bins, 1/(sigma * np.sqrt(2 * np.pi)) * np.exp( - (bins - mu)**2 / (2 * sigma**2) ),linewidth=2, color='r')
+ax3.set_xlim(-0.5, 0.5)
+ax3.set_ylim(0,6)
+ax3.set_title('Distribution of Residuals', fontsize = 9)
+ax3.set_ylabel('Frequency')
+ax3.set_xlabel('Time Residuals (S)')
 
 
 #%%
+np.std(res)
 #%%
 
 
@@ -315,7 +346,7 @@ for i in Pend_name_list:
 
 	x = dat["Number (n)"]
 	y = dat["Time (s)"]
-	y_err = np.sqrt(15)
+	y_err = 0.1
 
 	def line(x, a, b): 
 		return a * x + b
