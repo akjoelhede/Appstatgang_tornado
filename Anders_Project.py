@@ -274,7 +274,9 @@ ax.errorbar(x, line(x, *m.values), label="fit", color = 'blue' )
 ax.set_ylim(-30,180)
 ax.set_xlabel('Measurement number (N)', fontsize = 15)
 ax.set_ylabel('Time elapsed (S)', fontsize = 15)
+ax.set_title('Pendulum', fontsize = 20)
 ax.legend(title="\n".join(fit_info));
+
 
 ax2 = ax.twinx()
 
