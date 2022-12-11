@@ -242,7 +242,7 @@ def read_dat(filename):
 	dat = pd.read_csv(filename, sep = '\t', names = ["Number (n)","Time (s)"]) 
 	return dat
 
-filename = "timer_output_victoria.dat" 
+filename = "timer_output_gustav2.dat" 
 path = "Data/Pendulum/" 
 
 dat = read_dat(path + filename)
@@ -282,8 +282,8 @@ for p, v, e in zip(m.parameters, m.values, m.errors):
 	fit_info.append(f"{p} = ${v:.3f} \\pm {e:.3f}$")
 fig, ax = plt.subplots()
 
-ax.errorbar(x, y-50, yerr=y_err, fmt="o", color = 'black')
-ax.errorbar(x, line(x, *m.values)-50, label="fit", color = 'blue' )
+ax.errorbar(x, y, yerr=y_err, fmt="o", color = 'black')
+ax.errorbar(x, line(x, *m.values), label="fit", color = 'blue' )
 ax.set_ylim(-30,180)
 ax.set_xlabel('Measurement number (N)', fontsize = 15)
 ax.set_ylabel('Time elapsed (S)', fontsize = 15)
@@ -323,9 +323,15 @@ np.std(res)
 #%%
 
 
-print(pend_g(np.mean(Pen_length)/100,m.values[0]), pend_g_err(np.mean(Pen_length)/100,m.values[0],np.mean(Pen_length_err)/100,y_err))
+print(pend_g(np.mean(Pen_length)/100,m.values[0]), pend_g_err(np.mean(Pen_length-Hook_length-Floor_to_pen)/100,m.values[0],np.mean(Pen_length_err+Hook_length_err+Floor_to_pen_err)/100,y_err))
 
+print(np.mean(Pen_length-Hook_length-Floor_to_pen)/100, np.mean(Pen_length_err+Hook_length_err+Floor_to_pen_err)/100)
 
+print(np.mean(y_err))
+
+print(np.sqrt(1/len(x)),np.sqrt(1/len(Pen_length)))
+
+print(pend_g_err(np.mean(Pen_length-Hook_length-Floor_to_pen)/100,m.values[0],np.sqrt(1/len(x)),np.sqrt(1/len(Pen_length))))
 # %%
 
 "__________________FULLY ITERATIVE LOOP OVER ALL PENDULUM FILES_________________________"
