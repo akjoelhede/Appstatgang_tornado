@@ -6,8 +6,9 @@ import pandas as pd
 import scipy.signal as sp
 from iminuit import Minuit
 from iminuit.cost import LeastSquares
-from scipy.stats import chi2
-
+sys.path.append('External_Functions')
+from ExternalFunctions import UnbinnedLH, BinnedLH, Chi2Regression
+from ExternalFunctions import nice_string_output, add_text_to_ax
 
 #%%
 #Very ugly arrays of all data used in the pendulum and incline plane calculations of the graviational acceleration
@@ -81,7 +82,7 @@ def pend_g(L,T):
 
 def pend_g_err(L,T,L_err,T_err):
 
-	sig_g = ((2*np.pi/T)**2*L_err - L*((8*np.pi**2)/(T**3))*T_err)**2
+	sig_g = 4 * np.sqrt((np.pi**4*L_err**2/T**4) + (4*L*2*np.pi**4*T_err**2/T**6)) 
 
 	return sig_g
 
@@ -92,8 +93,6 @@ def inc_g(a, theta, D_ball, D_rail):
 	return g
 
 def inc_g_err(a, theta, D_ball, D_rail, a_err, theta_err, D_ball_err, D_rail_err):
-
-	sig_g_1 = ()*csc(theta)
 
 	sig_g = (1 + 5/2 * (D_ball**2)/(D_ball**2-D_rail**2))*csc(theta*np.pi/180)*a_err - a * (1 + 5/2 * (D_ball**2)/(D_ball**2-D_rail**2))*cot(theta*np.pi/180)*csc(theta*np.pi/180)*theta_err - a*csc(theta*np.pi/180)*(5*D_rail**2*D_ball)/(D_rail**2-D_ball**2)**2 * D_ball_err + a * csc(theta*np.pi/180) * (5*D_rail*D_ball**2)/(D_rail**2-D_ball**2)**2 * D_rail_err
 
@@ -110,12 +109,13 @@ def read_csv(filename):
 def find_peaks(filename): 
 
 	dat = read_csv(filename)
-	peaks = sp.find_peaks(dat["voltage (V)"], height = 4, distance = 100)
+	peaks = sp.find_peaks(dat["voltage (V)"], height = 1, distance = 100)
 	time = []
 	for i in peaks[0]: 
 		time.append(dat["Time (s)"][i])
 	return time
 
+#%%
 "_______________FIT AND PLOT FOR INCLINE PLANE WITH ONE FILE______________"
 
 #List of filenames used in the incline plane
@@ -238,8 +238,7 @@ dat = read_dat(path + filename)
 
 x = dat["Number (n)"]
 y = dat["Time (s)"]
-y_err = np.zeros_like(y)+1
-print(len(x))
+y_err = 0.1
 
 plt.plot(dat["Number (n)"],dat["Time (s)"], 'o')
 # %%
@@ -251,31 +250,48 @@ def line(x, a, b):
 
 #%%
 #We are using leastsquares fit here, this takes x, y, y_error, fit_func
-leastSquares = LeastSquares(x, y, y_err, line)
+Chi2 = Chi2Regression(line, x, y, y_err)
 
 #Makes the fit with minuit using our least square fit and guesses on the parameters.
-m = Minuit(leastSquares, a=8, b=10)  
+m = Minuit(Chi2, a=8, b=10)  
 
 m.migrad()  # finds minimum of least_squares function
 m.hesse()   # accurately computes uncertainties
 
 #%%
 
-# draw data and fitted line
-plt.errorbar(x, y, yerr=y_err, fmt="o")
-plt.plot(x, line(x, *m.values), label="fit")
+res = y - line(x, *m.values)
+print(res)
 
-#Plot our fit info
-fit_info = [
-	f"$\\chi^2$ / $n_\\mathrm{{dof}}$ = {m.fval:.1f} / {len(x) - m.nfit}",]
+#%%
+fit_info = [f"$\\chi^2$ / $n_\\mathrm{{dof}}$ = {m.fval:.1f} / {len(x) - m.nfit}",]
 for p, v, e in zip(m.parameters, m.values, m.errors):
 	fit_info.append(f"{p} = ${v:.3f} \\pm {e:.3f}$")
+fig, ax = plt.subplots()
 
-plt.legend(title="\n".join(fit_info));
-plt.show()
-# %%
+ax.errorbar(x, y, yerr=y_err, fmt="o", color = 'black')
+ax.errorbar(x, line(x, *m.values), label="fit", color = 'blue' )
+ax.set_ylim(-30,180)
+ax.set_xlabel('Measurement number (N)', fontsize = 15)
+ax.set_ylabel('Time elapsed (S)', fontsize = 15)
+ax.legend(title="\n".join(fit_info));
 
-pend_g(np.mean(Pen_length)/100,m.values[0])
+ax2 = ax.twinx()
+
+ax2.errorbar(x, res, y_err, fmt = ".", color = 'red')
+ax2.set_ylim(-0.5,3)
+ax2.hlines(0.1,0,20, color = 'black', linestyle = '--')
+ax2.hlines(0,0,20, color = 'black', linestyle = 'solid')
+ax2.hlines(-0.1,0,20, color = 'black', linestyle = '--')
+ax2.set_ylabel('Residuals (S)', fontsize = 15)
+
+
+#%%
+#%%
+
+
+print(pend_g(np.mean(Pen_length)/100,m.values[0]), pend_g_err(np.mean(Pen_length)/100,m.values[0],np.mean(Pen_length_err)/100,y_err))
+
 
 # %%
 
@@ -283,8 +299,11 @@ pend_g(np.mean(Pen_length)/100,m.values[0])
 
 Pend_name_list = ["timer_output_anders.dat","timer_output_cecilie.dat","timer_output_gustav2.dat","timer_output_morten.dat","timer_output_victoria.dat"]
 
+Pend_name_Gustav = ["timer_output_gustav2.dat"]
+
 Pendulum_Grav = []
 Pendulum_Grav_err = []
+
 
 for i in Pend_name_list:
 	filename = i 
@@ -294,16 +313,16 @@ for i in Pend_name_list:
 
 	x = dat["Number (n)"]
 	y = dat["Time (s)"]
-	y_err = 0.01
+	y_err = np.sqrt(15)
 
 	def line(x, a, b): 
 		return a * x + b
 
 	#We are using leastsquares fit here, this takes x, y, y_error, fit_func
-	leastSquares = LeastSquares(x, y, y_err, line)
+	Chi2 = Chi2Regression(line, x, y, y_err)
 
 	#Makes the fit with minuit using our least square fit and guesses on the parameters.
-	m = Minuit(leastSquares, a=8, b=10)  
+	m = Minuit(Chi2, a=8, b=10)  
 
 	m.migrad()  # finds minimum of least_squares function
 	m.hesse() 
@@ -323,4 +342,5 @@ print(np.mean(Pendulum_Grav), np.mean(Pendulum_Grav_err))
 
 # %%
 print(Pendulum_Grav)
+
 # %%
