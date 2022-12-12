@@ -329,9 +329,14 @@ print(np.mean(Pen_length-Hook_length-Floor_to_pen)/100, np.mean(Pen_length_err+H
 
 print(np.mean(y_err))
 
-print(np.sqrt(1/len(x)),np.sqrt(1/len(Pen_length)))
+print(np.sqrt(1/len(x)),np.sqrt(1/2))
 
 print(pend_g_err(np.mean(Pen_length-Hook_length-Floor_to_pen)/100,m.values[0],np.sqrt(1/len(x)),np.sqrt(1/len(Pen_length))))
+
+#%%
+np.mean(Pen_length-Hook_length-Floor_to_pen)/100
+#%%
+print(np.pi**4*np.mean(Pen_length_err)**2/m.values[0]**4, (4*np.mean(Pen_length)*2*np.pi**4*m.errors[0]**2/m.values[0]**6))
 # %%
 
 "__________________FULLY ITERATIVE LOOP OVER ALL PENDULUM FILES_________________________"
