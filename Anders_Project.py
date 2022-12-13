@@ -286,7 +286,7 @@ ax.errorbar(x, y, yerr=y_err, fmt="o", color = 'black')
 ax.errorbar(x, line(x, *m.values), label="fit", color = 'blue' )
 ax.set_ylim(-30,180)
 ax.set_xlabel('Measurement number (N)', fontsize = 15)
-ax.set_ylabel('Time elapsed (S)', fontsize = 15)
+ax.set_ylabel('Timeß elapsed (S)', fontsize = 15)
 ax.set_title('Pendulum', fontsize = 20)
 ax.legend(title="\n".join(fit_info));
 
@@ -386,5 +386,9 @@ print(np.mean(Pendulum_Grav), np.mean(Pendulum_Grav_err))
 
 # %%
 print(Pendulum_Grav)
+
+# %%
+
+chi2.sf(16.7,16)
 
 # %%
