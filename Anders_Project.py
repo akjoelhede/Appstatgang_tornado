@@ -242,7 +242,7 @@ def read_dat(filename):
 	dat = pd.read_csv(filename, sep = '\t', names = ["Number (n)","Time (s)"]) 
 	return dat
 
-filename = "timer_output_gustav2.dat" 
+filename = "timer_output_victoria.dat" 
 path = "Data/Pendulum/" 
 
 dat = read_dat(path + filename)
@@ -390,5 +390,55 @@ print(Pendulum_Grav)
 # %%
 
 chi2.sf(16.7,16)
+
+# %%
+
+def ww_runs(pos,neg,tot):
+
+	mu = 2*pos*neg/tot + 1
+
+	var = 2*pos*neg*(2*pos*neg-tot)/(tot**2*(tot-1))
+
+	return mu, np.sqrt(var)
+
+#%%
+Npos = []
+Nneg = []
+
+for i in res:
+	if i > 0:
+		Npos.append(i)
+	else:
+		Nneg.append(i)
+
+Npos = np.array(Npos)
+Nneg = np.array(Nneg)
+Ntot = len(Npos) + len(Nneg)
+
+#%%
+print(len(res))
+ww_runs(len(Npos),len(Nneg),Ntot)
+#%%
+
+perioder = np.array([6.89, 7.12, 8.60, 7.81, 8.37])
+per_err = np.array([0.14, 0.18, 0.096, 0.30, 0.31])
+antal = np.array([1,2,3,4,5])
+
+fig, ax = plt.subplots()
+
+ax.errorbar(antal, perioder, per_err, fmt = 'o', capsize = 5, color = 'red')
+ax.hlines(np.mean(perioder)-np.mean(per_err),0,5, color = 'black', linestyle = 'dashed')
+ax.hlines(np.mean(perioder)+np.mean(per_err),0,5, color = 'black', linestyle = 'dashed')
+ax.hlines(np.mean(perioder),0,5, color = 'black')
+ax.set_ylim(6.5,9)
+ax.set_xlabel('Number of measurements')
+ax.set_ylabel('Period [s]')
+ax.plot(np.array([0.5, 0.5]), np.array([np.mean(perioder), np.mean(perioder)+np.mean(per_err)]), color = 'black')
+ax.plot(np.array([0.5, 0.5]), np.array([np.mean(perioder), np.mean(perioder)-np.mean(per_err)]), color = 'black')
+ax.text(0.65, 8.1, '+1$\sigma$')
+ax.text(0.65, 7.3, '-1$\sigma$')
+
+plt.legend()
+plt.show()
 
 # %%
